@@ -1,0 +1,224 @@
+###############################################################################
+###############################################################################
+#                                                                             #
+# Author:   Logan Stundal                                                     #
+# Date:     June 21, 2019                                                     #
+# Function: Models for Polmeth 2019 poster / paper                            #
+#                                                                             #
+###############################################################################
+###############################################################################
+
+rm(list=ls())
+
+###############################################################################
+#                                                                             #
+# ADMINISTRATIVE                                                              #
+#                                                                             #
+###############################################################################
+
+library(spdep)
+library(spatialreg)
+
+setwd(paste('C:/Users/logan/Google Drive/UMN/CLASSES/',
+            '2018 SUMMER/RA - John',sep=''))
+load('Colombia Data/polmeth_colombia.RData')
+
+
+###############################################################################
+#                                                                             #
+# FORMULAS                                                                    #
+#                                                                             #
+###############################################################################
+
+fms <- list(
+  'f1'  = formula(. ~ prio_capDist_ln + prio_popSum_ln + prio_mountain + km2_ln),
+  'f2a' = formula(. ~ prio_capDist_ln + prio_popSum_ln + prio_mountain + km2_ln + bogota),
+  'f2b' = formula(. ~ prio_capDist_ln + prio_popSum_ln + prio_mountain + km2_ln + prio_forest),
+  'f3'  = formula(. ~ prio_capDist_ln + prio_popSum_ln + prio_mountain + km2_ln + prio_forest + bogota)
+)
+
+###############################################################################
+#                                                                             #
+# OLS MODELS                                                                  #
+#                                                                             #
+###############################################################################
+
+# ICEWS
+ols.icews <- sapply(fms, function(x) 
+  lm(update(x,icews_scale ~.),data=col_dat@data),
+  simplify = F, USE.NAMES = T)
+
+# GED
+ols.ged <- sapply(fms, function(x) 
+  lm(update(x,ged_scale ~.),data=col_dat@data),
+  simplify = F, USE.NAMES = T)
+
+# CINEP
+ols.cinep <- sapply(fms, function(x) 
+  lm(update(x,CINEP_scale ~.),data=col_dat@data),
+  simplify = F, USE.NAMES = T)
+
+
+#######################################
+# Lagrange Multiplier Tests           #
+#######################################
+
+# ICEWS
+LMtst.icews <- sapply(ols.icews, function(x) 
+  lm.LMtests(x, listw = nb.lst, test = 'all'),
+  simplify = F, USE.NAMES = T)
+
+# GED
+LMtst.ged <- sapply(ols.ged, function(x) 
+  lm.LMtests(x, listw = nb.lst, test = 'all'),
+  simplify = F, USE.NAMES = T)
+
+# CINEP
+LMtst.cinep <- sapply(ols.cinep, function(x) 
+  lm.LMtests(x, listw = nb.lst, test = 'all'),
+  simplify = F, USE.NAMES = T)
+
+
+#######################################
+# Save OLS Residuals                  #
+#######################################
+
+# ICEWS
+col_dat@data <- cbind(col_dat@data, setNames(lapply(ols.icews, residuals),
+                                             paste0('residuals.ols.icews.',names(ols.icews))))
+
+# GED
+col_dat@data <- cbind(col_dat@data, setNames(lapply(ols.ged, residuals),
+                                             paste0('residuals.ols.ged.',names(ols.ged))))
+
+# CINEP
+col_dat@data <- cbind(col_dat@data, setNames(lapply(ols.cinep, residuals),
+                                             paste0('residuals.ols.cinep.',names(ols.cinep))))
+
+
+
+###############################################################################
+#                                                                             #
+# SPATIAL ERROR MODELS                                                        #
+#                                                                             #
+###############################################################################
+
+
+# ICEWS
+sp.icews <- sapply(fms, function(x) 
+  errorsarlm(update(x, icews_scale ~.), data=col_dat@data,
+             listw = nb.lst, control = list(optimHess = T)),
+  simplify = F, USE.NAMES = T)
+
+# GED
+sp.ged   <- sapply(fms, function(x) 
+  errorsarlm(update(x, ged_scale ~.), data=col_dat@data,
+             listw = nb.lst, control = list(optimHess = T)),
+  simplify = F, USE.NAMES = T)
+
+# CINEP
+sp.cinep <- sapply(fms, function(x) 
+  errorsarlm(update(x, CINEP_scale ~.), data=col_dat@data,
+             listw = nb.lst, control = list(optimHess = T)),
+  simplify = F, USE.NAMES = T)
+
+
+#######################################
+# Save spatial error residuals        #
+#######################################
+
+# ICEWS
+col_dat@data <- cbind(col_dat@data, setNames(lapply(sp.icews, residuals),
+                                             paste0('residuals.sp.icews.',names(sp.icews))))
+
+# GED
+col_dat@data <- cbind(col_dat@data, setNames(lapply(sp.ged, residuals),
+                                             paste0('residuals.sp.ged.',names(sp.ged))))
+
+# CINEP
+col_dat@data <- cbind(col_dat@data, setNames(lapply(sp.cinep, residuals),
+                                             paste0('residuals.sp.cinep.',names(sp.cinep))))
+
+
+
+###############################################################################
+#                                                                             #
+# SPATIAL TESTING - MORAN'S I                                                 #
+#                                                                             #
+###############################################################################
+
+dvs <- c('icews_scale','ged_scale','CINEP_scale')
+
+#####################################################################
+# Moran's I -- Dependent Variables (Spatial Lag Process)            #
+#####################################################################
+#                                                                   #
+# Moran's I - Non-parametric Monte Carlo                            #
+moran.mc.dvs <- sapply(dvs, function(x)                             #
+  moran.mc(col_dat@data[,x], listw = nb.lst, nsim=1e3),             #
+  simplify = F, USE.NAMES = T)                                      #
+#                                                                   #
+# Moran's I - Parametric (assumes normality)                        #
+moran.nm.dvs <- sapply(dvs, function(x)                             #
+  moran(col_dat@data[,x], nb.lst, length(nb.r),Szero(nb.lst)),      #
+  simplify = F, USE.NAMES = T)                                      #
+#                                                                   #
+#####################################################################
+
+res.ols <- variable.names(col_dat@data)[grepl('residuals.ols',variable.names(col_dat@data))]
+
+#####################################################################
+# Moran's I -- OLS Residuals (Spatial Error Process)                #
+#####################################################################
+#                                                                   #
+# Moran's I - Non-parametric Monte Carlo                            #
+moran.mc.res.ols <- sapply(res.ols, function(x)                     #
+  moran.mc(col_dat@data[,x], listw = nb.lst, nsim=1e3),             #
+  simplify = F, USE.NAMES = T)                                      #
+#                                                                   #
+# Moran's I - Parametric (assumes normality)                        #
+moran.nm.res.ols <- sapply(res.ols, function(x)                     #
+  moran(col_dat@data[,x], nb.lst, length(nb.r),Szero(nb.lst)),      #
+  simplify = F, USE.NAMES = T)                                      #
+#                                                                   #
+#####################################################################
+
+res.sp <- variable.names(col_dat@data)[grepl('residuals.sp',variable.names(col_dat@data))]
+
+#####################################################################
+# Moran's I -- SP Error Residuals (should be white noise)           #
+#####################################################################
+#                                                                   #
+# Moran's I - Non-parametric Monte Carlo                            #
+moran.mc.res.sp <- sapply(res.sp, function(x)                       #
+  moran.mc(col_dat@data[,x], listw = nb.lst, nsim=1e3),             #
+  simplify = F, USE.NAMES = T)                                      #
+#                                                                   #
+# Moran's I - Parametric (assumes normality)                        #
+moran.nm.res.sp <- sapply(res.sp, function(x)                       #
+  moran(col_dat@data[,x], nb.lst, length(nb.r),Szero(nb.lst)),      #
+  simplify = F, USE.NAMES = T)                                      #
+#                                                                   #
+#####################################################################
+
+rm(dvs, res.ols, res.sp)
+
+# sapply(moran.nm.res.ols, str)
+
+###############################################################################
+#                                                                             #
+# SAVE DATA OBJECTS                                                           #
+#                                                                             #
+###############################################################################
+#                                                                             #
+save.image(file='Colombia Data/polmeth_colombia_models.RData')                #
+rm(list=ls())                                                                 #
+#                                                                             #
+###############################################################################
+
+
+
+
+
+
+

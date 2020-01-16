@@ -1,15 +1,35 @@
 #-----------------------------------------------------------------------------#
-#                                                                             #
-# Author:   Logan Stundal                                                     #
-# Date:     December 31, 2019                                                 #
-# Function: Merge Event, PRIO, CINEP data                                     #
-#                                                                             #
+#                                                                             
+# Author:        Logan Stundal                                                    
+# Date:          December 31, 2019                                                 
+# Purpose:       Merge Event, PRIO, CINEP data                      
+#                                                                             
+#
+# Copyright (c): Logan Stundal, 2020                      
+# Email:         stund005@umn.edu
+#
+#-----------------------------------------------------------------------------# 
+#
+# Notes:                                                                    
+#       January 16, 2020 -- updated header information, addressed missing CINEP
+#                           scale variable omission, added outer administrative 
+#                           Colombia boundary to the data file at the end of this
+#                           script.
+#                                                                             
 #-----------------------------------------------------------------------------#
+
+
 
 # ADMINSTRATIVE ---------------------------------------------------------------
 
+#---------------------------#
+# Clear working directory   
+#---------------------------#
 rm(list=ls())
 
+#---------------------------#
+# Load required libraries   
+#---------------------------#
 library(foreign)
 library(tidyverse)
 library(sp)
@@ -17,9 +37,14 @@ library(sf)
 library(raster)
 library(spdep)
 
+#---------------------------#
+# Set working directory     
+#---------------------------#
 setwd(paste('C:/Users/logan/GoogleDrive/UMN/RESEARCH/RA_JOHN/Event_Data_Project/Scripts'))
 
-# FUNCTIONS
+#---------------------------#
+# Load functions            
+#---------------------------#
 {
 .spAg <- function(shp,pts,vr,fn,na.rm=T){
   if(class(shp)[1] == 'sf'){
@@ -448,6 +473,23 @@ colombia <- colombia.shp %>%
 
 
 # _____________________ ----
+# COLOMBIA - NATIONAL BOUNDARY ------------------------------------------------
+
+col0 <- rworldmap::getMap(resolution = 'high') %>%
+  st_as_sf(col0) %>%
+  filter(SOVEREIGNT == 'Colombia') %>%
+  rename(Country = SOVEREIGNT) %>%
+  dplyr::select(Country)
+
+col0 <- st_crop(col0, c(xmin = -80,
+                        ymin = -5,
+                        xmax = -66,
+                        ymax = 14))
+col0 <- st_transform(col0, crs = st_crs(colombia))
+
+
+
+# _____________________ ----
 # SPATIAL WEIGHTS -------------------------------------------------------------
 
 # Drop islands here: [this code may prove important for sensitivity test later]
@@ -459,87 +501,87 @@ colombia.shp <- subset(colombia.shp,
 colombia <- colombia %>%
   filter(Municipality != 'San Andres Y Providencia')
 
-#-------------------------------------------------------------------#
-# Queens contiguity --                                              #
-#-------------------------------------------------------------------#
-#                                                                   #
-nb.r        <- poly2nb(pl        = colombia.shp,                    #
-                       row.names = colombia.shp$ID,                 #
-                       queen     = TRUE)                            #
-nb.lst      <- nb2listw(nb.r)                                       #
-# W           <- nb2mat(nb.r, style="B")                            #
-# colnames(W) <- rownames(W)                                        #
-#                                                                   #
-#-------------------------------------------------------------------#
+#-----------------------------------------------------------------------------#
+# Queens contiguity --                                              
+#-----------------------------------------------------------------------------#
+#                                                                   
+nb.r        <- poly2nb(pl        = colombia.shp,                    
+                       row.names = colombia.shp$ID,                 
+                       queen     = TRUE)                            
+nb.lst      <- nb2listw(nb.r)                                       
+W           <- nb2mat(nb.r, style="B")                            
+colnames(W) <- rownames(W)                                        
+#                                                                   
+#-----------------------------------------------------------------------------#
 
-#-------------------------------------------------------------------#
-# K nearest neighbors -- (k=1)                                      #
-#-------------------------------------------------------------------#
-#                                                                   #
-# "this adapts across the study area, taking account of differences #
-#  in the densities of areal entities."                             #
-#  (Source: Roger Bivand, nb.pdf in wd, p. 5)                       #
-#                                                                   #
-# coords <- coordinates(col_dat)                                    #
-# colnames(coords) <- c('x','y')                                    #
-# coords <- as.data.frame(coords)                                   #
-# coordinates(coords) <- ~x+y                                       #
-## plot(coords,add=T,col='red')                                     #
-#                                                                   #
-# IDs <- row.names(as(col_dat, "data.frame"))                       #
-# nn_nb <- knn2nb(knearneigh(coords, k = 1), row.names = IDs)       #
-#                                                                   #
-# dsts <- unlist(nbdists(nn_nb, coords))                            #
-# summary(dsts)                                                     #
-#                                                                   #
-# summary(dsts) yields: "The greatest value will be the minimum     #
-# distance needed to make sure that all the areas are linked to at  #
-# least one neighbour. (Source: Roger Bivand, nb.pdf in wd, p. 5)   #
-#                                                                   #
-# nb2 <- dnearneigh(coords, d1 = 0, d2 = 1*max(dsts),               #
-#                   row.names = IDs)                                #
-## nb2                                                              #
-## plot(nb2,coords=coordinates(col_dat))                            #
-# nb2_list <- nb2listw(nb2)                                         #
-#                                                                   #
-#-------------------------------------------------------------------#
+#-----------------------------------------------------------------------------#
+# K nearest neighbors -- (k=1)                                      
+#-----------------------------------------------------------------------------#
+#                                                                   
+# "this adapts across the study area, taking account of differences 
+#  in the densities of areal entities."                             
+#  (Source: Roger Bivand, nb.pdf in wd, p. 5)                       
+#                                                                   
+# coords <- coordinates(col_dat)                                    
+# colnames(coords) <- c('x','y')                                    
+# coords <- as.data.frame(coords)                                   
+# coordinates(coords) <- ~x+y                                       
+## plot(coords,add=T,col='red')                                     
+#                                                                   
+# IDs <- row.names(as(col_dat, "data.frame"))                       
+# nn_nb <- knn2nb(knearneigh(coords, k = 1), row.names = IDs)       
+#                                                                   
+# dsts <- unlist(nbdists(nn_nb, coords))                            
+# summary(dsts)                                                     
+#                                                                   
+# summary(dsts) yields: "The greatest value will be the minimum     
+# distance needed to make sure that all the areas are linked to at  
+# least one neighbour. (Source: Roger Bivand, nb.pdf in wd, p. 5)   
+#                                                                   
+# nb2 <- dnearneigh(coords, d1 = 0, d2 = 1*max(dsts),               
+#                   row.names = IDs)                                
+## nb2                                                              
+## plot(nb2,coords=coordinates(col_dat))                            
+# nb2_list <- nb2listw(nb2)                                         
+#                                                                   
+#-----------------------------------------------------------------------------#
 
-#-------------------------------------------------------------------#
-# GeoDa GWT Distance-based weights                                  #             
-#-------------------------------------------------------------------#
-#                                                                   #
-# geoda  <- read.gwt2nb('tempdir_shp/col_dat2.gwt')                 #
-# geoda2 <- nb2mat(geoda,style = 'W')                               #
-# geoda3 <- nb2listw(geoda)                                         #
-#                                                                   #
-#-------------------------------------------------------------------#
-#                                                                   #
-# png('neighbors.png',width=10,height=7,units='in',res=300)         #
-#   par(mfrow=c(1,3))                                               #
-#                                                                   #
-#   plot(col_dat)                                                   #
-#   mtext('Colombia Municipalities',side=3,line=-2.5,font=2)        #
-#                                                                   #
-#   plot(col_dat)                                                   #
-#   mtext('Neighbor contiguity',side=3,line=-2.5,font=2)            #
-#   plot(nb.r,coords=coordinates(col_dat),add=T)                    #
-#                                                                   #
-#   plot(col_dat)                                                   #
-# mtext('Distance based \n(minimum for all                          #
-#       to have 1 neighbor at least)',side=3,line=-2.5,font=2)      #
-#   plot(nb2,coords=coordinates(col_dat),add=T)                     #
-# dev.off()                                                         #
-#                                                                   #
-#-------------------------------------------------------------------#
+#-----------------------------------------------------------------------------#
+# GeoDa GWT Distance-based weights                                               
+#-----------------------------------------------------------------------------#
+#                                                                   
+# geoda  <- read.gwt2nb('tempdir_shp/col_dat2.gwt')                 
+# geoda2 <- nb2mat(geoda,style = 'W')                               
+# geoda3 <- nb2listw(geoda)                                         
+#                                                                   
+#-----------------------------------------------------------------------------#
+#                                                                   
+# png('neighbors.png',width=10,height=7,units='in',res=300)         
+#   par(mfrow=c(1,3))                                               
+#                                                                   
+#   plot(col_dat)                                                   
+#   mtext('Colombia Municipalities',side=3,line=-2.5,font=2)        
+#                                                                   
+#   plot(col_dat)                                                   
+#   mtext('Neighbor contiguity',side=3,line=-2.5,font=2)            
+#   plot(nb.r,coords=coordinates(col_dat),add=T)                    
+#                                                                   
+#   plot(col_dat)                                                   
+# mtext('Distance based \n(minimum for all                          
+#       to have 1 neighbor at least)',side=3,line=-2.5,font=2)      
+#   plot(nb2,coords=coordinates(col_dat),add=T)                     
+# dev.off()                                                         
+#                                                                   
+#------------------------------------------------------------------------------#
 
 
 rm(colombia.shp)
 
 
 #-----------------------------------------------------------------------------#
-#                                                                             #
-# SAVE DATA OBJECTS                                                           #
-#                                                                             #
+#                                                                             
+# SAVE DATA OBJECTS                                                           
+#                                                                             
 #-----------------------------------------------------------------------------#
 
 # save(col_dat,file='2019 Summer - Data Work/Models and Plots/colombia_unified_2005.RData')

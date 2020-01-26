@@ -1,0 +1,122 @@
+---
+title: "Colombia: Event Data Validation Project, Data Codebook"
+thanks: "`r sprintf('Document date: %s', format(Sys.time(), '%B %d, %Y'))`"
+author:
+- name: Logan Stundal, Ban Bagozzi, John Freeman, Jen Holmes
+output: 
+  pdf_document:
+    citation_package: natbib
+    keep_tex: false
+    fig_caption: true
+    latex_engine: pdflatex
+    template: "c:/users/logan/googledrive/umn/research/templates_logos/templates/svm-r-markdown-templates-master/svm-latex-ms_logan.tex"   
+bibliography: "c:/users/logan/googledrive/umn/research/references/library"
+biblio-style: "c:/users/logan/googledrive/umn/research/references/csl-formats/apsrnourl.bst"
+header-includes:
+  -  \usepackage{hyperref}
+  -  \usepackage{amssymb}
+  -  \usepackage{caption}
+  -  \usepackage{subfig}
+  -  \usepackage{multirow}
+  -  \usepackage{booktabs}
+  -  \usepackage{tabularx}
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 12pt
+spacing: onehalf
+endnote: no
+logan: true
+linestretch: 1.5
+citecolor: black
+linkcolor: black
+toc: false
+---
+\vspace{3mm}
+
+```{r include = FALSE}
+library(knitr)
+library(kableExtra)
+library(sp)
+library(ggplot2)
+
+opts_chunk$set(echo = FALSE)
+
+load('c:/users/logan/googledrive/umn/research/ra_john/event_data_project/data/colombia.rdata')
+```
+
+# Table of variables
+- Include a nicely formatted table of *variables*, *variable names in data*, *descriptions*, and *units* here.
+
+\begin{table}[!h]
+  \begin{tabularx}{\textwidth}{lXXXr}
+    \toprule
+    Variable & Name & Description & Unit & Source \\
+    \midrule
+    Var 1 & Var 1 & Var 1 & Var 1 & Var 1 \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+
+OR -----
+
+```{r}
+
+d <- data.frame('Variable'  = c('a','b','c'),
+                'Data Name' = c('bob','bill','other bill'),
+                'Description' = c(letters[1:3]),
+                'Units'       = c(letters[1:3]))
+
+kable(d) %>%
+  kable_styling(bootstrap_options = "striped", full_width = T)
+
+```
+
+
+
+The following sections provide more detailed information on these variable constructions.
+
+\newpage
+# Units of Analysis and Shapefile
+The shapefile for our Colombia data come from the United Nations Office for the Coordination of Humanitarian Affairs, hosted on the Humanitarian Data Exchange: [HDX](https://data.humdata.org/dataset/colombia-administrative-boundaries-levels-0-3). The file contains coordinate information for Colombia's 1117 municipalities. San Andres and Providencia, a department in the Carribean, was dropped from this base map file due to their distance from mainland Colombia resulting in a final base map of 1116 municipalities[^gadm]. 
+
+```{r, cache=TRUE, fig.cap='Colombia, Level 2 Municipalities (n = 1116)',fig.height=4,fig.width=4}
+ggplot(data = colombia) + geom_sf(fill = 'transparent', size = 0.1) + theme_void()
+
+```
+
+
+[^gadm]: GADM, a repository hosting spatial data on administrative units, has [errors](https://gis.stackexchange.com/questions/167247/seeking-colombia-municipality-geometries) in its version of Colombia's municipalities map.
+
+## General conditions:
+This shapefile was reprojected into a XXXX projection in order to accurately estimate area size and all distance measures.
+
+All variables in the data were aggregated to cover years betten **2002** and **2009** .
+
+\newpage
+# Event Data
+## ICEWS
+
+## GED
+
+## CINAP
+
+
+# Covariate Data
+## PRIO
+### Mountains Mean
+### Forest Mean
+
+
+## Google Earth Engine
+### World Population
+### Forest Cover
+### Night Lights
+
+### Rough Terrain Index
+Note, this sources is from xyz.
+
+
+## Electoral Data
+- source: Constituency-Level Elections Archive  [CLEA] Lower Chamber Elections Archive [Version: June 17, 2019]
+  - Link: http://www.electiondataarchive.org/clea-lower-chamber-elections-archive.php

@@ -1,5 +1,5 @@
 base
-sp
-ggplot2
 knitr
 kableExtra
+sp
+ggplot2

@@ -2,7 +2,7 @@
 title: "Colombia: Event Data Validation Project, Data Codebook"
 thanks: "`r sprintf('Document date: %s', format(Sys.time(), '%B %d, %Y'))`"
 author:
-- name: Logan Stundal, Ban Bagozzi, John Freeman, Jen Holmes
+- name: Logan Stundal, Benjamin E. Bagozzi, John R. Freeman, Jennifer S. Holmes
 output: 
   pdf_document:
     citation_package: natbib
@@ -20,103 +20,285 @@ header-includes:
   -  \usepackage{multirow}
   -  \usepackage{booktabs}
   -  \usepackage{tabularx}
+  -  \usepackage{verbatim}
 geometry: margin=1in
-fontfamily: mathpazo
 fontsize: 12pt
 spacing: onehalf
 endnote: no
 logan: true
-linestretch: 1.5
+linestretch: 1
 citecolor: black
 linkcolor: black
-toc: false
+toc: true
 ---
 \vspace{3mm}
 
 ```{r include = FALSE}
 library(knitr)
 library(kableExtra)
-library(sp)
+library(sf)
 library(ggplot2)
 
 opts_chunk$set(echo = FALSE)
-
-load('c:/users/logan/googledrive/umn/research/ra_john/event_data_project/data/colombia.rdata')
+load('c:/users/logan/googledrive/umn/research/ra_john/event_data_project/data/colombia.RData')
 ```
 
-# Table of variables
-- Include a nicely formatted table of *variables*, *variable names in data*, *descriptions*, and *units* here.
-
-\begin{table}[!h]
-  \begin{tabularx}{\textwidth}{lXXXr}
-    \toprule
-    Variable & Name & Description & Unit & Source \\
-    \midrule
-    Var 1 & Var 1 & Var 1 & Var 1 & Var 1 \\
-    \bottomrule
-  \end{tabularx}
-\end{table}
-
-
-OR -----
-
-```{r}
-
-d <- data.frame('Variable'  = c('a','b','c'),
-                'Data Name' = c('bob','bill','other bill'),
-                'Description' = c(letters[1:3]),
-                'Units'       = c(letters[1:3]))
-
-kable(d) %>%
-  kable_styling(bootstrap_options = "striped", full_width = T)
-
-```
-
-
-
-The following sections provide more detailed information on these variable constructions.
 
 \newpage
 # Units of Analysis and Shapefile
-The shapefile for our Colombia data come from the United Nations Office for the Coordination of Humanitarian Affairs, hosted on the Humanitarian Data Exchange: [HDX](https://data.humdata.org/dataset/colombia-administrative-boundaries-levels-0-3). The file contains coordinate information for Colombia's 1117 municipalities. San Andres and Providencia, a department in the Carribean, was dropped from this base map file due to their distance from mainland Colombia resulting in a final base map of 1116 municipalities[^gadm]. 
+The shapefile for our Colombia data come from the United Nations Office for the Coordination of Humanitarian Affairs (UN OCHA), hosted on the Humanitarian Data Exchange: [HDX](https://data.humdata.org/dataset/colombia-administrative-boundaries-levels-0-3). The file contains coordinate information for Colombia's 1117 municipalities. San Andres and Providencia, a department in the Caribbean, was dropped from this base map file due to its distance from mainland Colombia resulting in a final base map of 1116 municipalities[^gadm]. 
 
 ```{r, cache=TRUE, fig.cap='Colombia, Level 2 Municipalities (n = 1116)',fig.height=4,fig.width=4}
-ggplot(data = colombia) + geom_sf(fill = 'transparent', size = 0.1) + theme_void()
+ggplot(data = colombia) + geom_sf(aes(geometry = geometry), fill = 'transparent', size = 0.1) + theme_void()
 
 ```
 
 
-[^gadm]: GADM, a repository hosting spatial data on administrative units, has [errors](https://gis.stackexchange.com/questions/167247/seeking-colombia-municipality-geometries) in its version of Colombia's municipalities map.
+[^gadm]: GADM, a repository hosting spatial data on administrative units, has [errors](https://gis.stackexchange.com/questions/167247/seeking-colombia-municipality-geometries) in its version of Colombia's municipalities map. ESOC still use this data source as well - they direct to it on their Colombia profile [page](https://esoc.princeton.edu/country/colombia).
 
-## General conditions:
-This shapefile was reprojected into a XXXX projection in order to accurately estimate area size and all distance measures.
+## Projection Information
+This shapefile was re-projected into a South America Albers Equal Area Conic [projection](https://epsg.io/102033) in order to accurately calculate all area and distance measures. The proj4string follows:
 
-All variables in the data were aggregated to cover years betten **2002** and **2009** .
+> +proj=aea +lat_1=-5 +lat_2=-42 +lat_0=-32 +lon_0=-60 +x_0=0 +y_0=0 
+> +ellps=aust_SA +units=m +no_defs
+
+## Spatial Weights Matrix
+A Queen's contiguity spatial weights matrix was estimated to evaluate spatial dependence in the data with discrete spatial models. Entries in cells of the resulting $n \times n$ matrix reports the presence [$=1$] or absence [$=0$] of a shared boundary between municipalities. A "shared boundary" under the Queen's contiguity definition includes any municipalities that share any border contact - whether a stretch of continuous space or only at a point. 
+
+## Temporal Aggregation
+All variables in the data were aggregated to the years between **2002** and **2009** inclusive.
 
 \newpage
 # Event Data
-## ICEWS
+Event data on human (GED), machine (ICEWS), and ground-truth (CINEP) reporting acts of violence perpetuated by rebel forces against government and civilians are recorded in the data. All reported event counts are aggregated to the municipality level using a sum aggregation. 
 
-## GED
+The ICEWS extraction was specified to geo-locations precise to within the city/village level. The data includes both ***standardized*** and ***non-standardized*** reported sources of violence. The former category only records instances of violence with news sources that correspond to sources employed by human coders at UCDP. Various operationalizations of the ICEWS figure include variables containing all actors (***original***), no unknown actors (***noUNK***), and finally only events perpetuated by FARC (***farc***). GED data were extracted with geo-locations precise to within 25 km of a known location. 
 
-## CINAP
+Finally, due to concentrated event reporting in a few municipalities (such as due to over-reporting in Bogota), scaled versions for each of these variables was constructed in order to address this over-dispersion. These scaled (***scale***) variables range from 0 to 1.
 
+Beyond these a number of ancillary variables were constructed to evaluate the reporting accuracy of the human and machine coded data. These include:
+
+- **Event Reporting Agreement** - binary variables which indicate reporting agreement between combinations of the three measures: ICEWS, GED, and CINEP. Two values of these variables report whether there is agreement in counts (***count***), or agreement that any event transpired within a municipality (***any***). The following combinations were constructed to test for agreements in ***count*** or ***any***:
+  - icews_ged_agree_
+  - icews_cinep_agree_
+  - ged_cinep_agree_
+
+All event data based variables begin with a prefix corresponding to their source: ***icews__***, ***ged_***, or ***cinep_***.  
 
 # Covariate Data
-## PRIO
-### Mountains Mean
-### Forest Mean
+## Geographic variables
+Five binary variables were constructed to indicate whether a municipality shared a border with any of the following countries: Ecuador, Peru, Brazil, Venezuela, and Panama. In the data these are titled: **border_countryName** and take a value of [$=1$, shared border] or [$=0$, no border]. Additionally, a variable was constructed to indicate whether the country shares any international border: **border_international**.
 
+Distances from each municipality centroid to the *nearest* each of these countries was also estimated. These variables appear in the data with the name format: **distance_countryName** and have kilometers as their units of analysis. **border_international_km** reports the shortest distance from the municipality centroid to *any* international boundary. Since @Martinez2017 suggests that cross-border travel between Venezuela and Colombia provided a strategic benefit to FARC forces during this time period, I though the inclusion of these border dummies and distance measures were warranted.
 
-## Google Earth Engine
-### World Population
-### Forest Cover
-### Night Lights
+Using data from the [***GeoNames***](http://www.geonames.org/) data repository on populated and named places, the following additional distance measures were constructed (all distance measures are in kilometers):
 
-### Rough Terrain Index
-Note, this sources is from xyz.
+  * ***Distance - Populated Place (50,000 inhabitants)***
+    - This measure was constructed in two versions. The first reports municipality centroid distance to the nearest inhabited place with 50,000 inhabitants *within* Colombia only. The second version reports this distance, but includes possible locations outside of Colombia's borders.
+    - Note: On the 50,000 inhabitant cut-off, the PRIO-Grid team employ a similarly-constructed variable in their estimation of travel-time to the nearest inhabited place which also uses 50,000. See: @Tollefsen2012.
+  * ***Distance - Department Capital***
+    - Using the coordinates of the first-order administrative division (Department) capitals, this measure reports the distance (km) of each municipality centroid to the nearest capital.
+  * ***Distance - Bogota***
+    - Using the latitude and longitude for Bogota, this variable reports the distance (km) of each municipality centroid to the country capital.
+    
+All variable names which pertain to distance-based measurements begin with the ***distance_*** prefix.
 
+## Google Earth Engine Rasters vs. PRIO Grid
+One of the limitations of @Hammond2014 is they evaluate the spatial dynamics of machine coded data sources using spatial covariates which lack the precision to identify patterns that would let us make conclusions about machine reporting accuracy vs. human coders. The smaller spatial resolution available in the data Google Earth Engine data discussed below (which range from 1km to 30 meters) allow us to identify meaningful variation in relevant exogenous factors which could explain both reporting bias and observed incidence of insurgent violence when aggregated to municipality units. 
+
+Due to heterogeneity in the size of the administrative units in Colombia, some $55\times55$ km PRIO-Grid cell quadrants contain over 110 units which exceeds 10% of the full sample. Using the PRIO data would require assigning all of these units identical covariate values which both artificially dampens true variation and likely suppresses the capacity of our models to detect patterns related to both reporting and the locations with more violent events. Using higher-resolution data sources avoids this problem.
+
+\begin{center}
+  \includegraphics{../../plots/Data_compare.png}
+\end{center}
+
+### Google Earth Engine
+Due to missing data for important covariates of interest (forest cover, elevation), we utilized [Google's Earth Engine](https://earthengine.google.com/) infrastructure to perform extracts for forest cover, night light luminosity, and population. Additionally, due to the computational costs of working with high-resolution raster data, aggregation of Terrain Roughness Index measurements were also performed on Google servers. JavaScript replication files to reproduce these extracts are available at: ***TEMP***.
+
+The following variables were constructed and extracted from within Google's Earth Engine ecosystem:
+
+  * ***Forest Cover*** - the percentage of ground cover within each 30-meter pixel with woody vegetation exceeding 5-meters in height. The Landsat satellite constellation recorded these values in 2000, 2005, and 2010. This study uses the average reported value in the 2005 data and then mean-aggregates to the municipality level.
+  * ***Nighttime Lights*** - an index value ranging [0, 63] reporting the luminosity intensity of visible and near-infrared emissions. The data here employ the 2002 to 2009 average of the "stable-lights" measure which includes lights from cities, towns, and other locations with persistent lighting. The series ranges from 0, no light emissions, to 63 which would be observed in a major city. 
+  * ***Population*** - the sum of the total average population count living within a municipality. This value is derived from World Pop's gridded population of the world 100m population estimates. 100m pixel estimates were averaged over the 2002 to 2009 study period and then aggregated to the municipality level by summing the values falling within each location.
+  * ***Terrain Roughness Index*** - The terrain roughness index [TRI] is not available on Google's Earth Engine platform, but rather was produced by @Amatulli2018. This project utilized the 1km product. Due to the speeds of Google's platform, all computation and aggregation was performed on their servers. TRI represents the absolute elevation difference in a focal cell with respect to 8 neighboring cell values. Therefore, values reported in the TRI data represent total elevation changes in all 3x3 km regions across a country. These values were mean-aggregated to the municipality level. Therefore, reported values reflect the total average change in elevation reported in a country and, therefore, serve as a measure of terrain difficulty and accessibility[^tri].
+
+All high-resolution raster data computed on Google's cluster correspond to variable names beginning with the ***google_*** prefix.
+
+[^tri]: @Nunn2012a also use a similarly constructed (although less precise) measure of terrain roughness in their argument for terrains impact on differential development outcomes in post-slave trade countries in Africa. They refer to authors major political science articles that employ percentage of mountainous terrain and note deficiencies in these large-scale terrain irregularities relative to those identified in the TRI.
+
+### PRIO
+The following variables from the PRIO-grid were aggregated to the municipality level:
+
+  * ***Mountains mean (% cell coverage)***
+  * ***Capital distance (km from cell centroid)***
+  * ***Population (total of cells)***
+  * ***Travel time to Bogota (mins. from cell centroid)***
+  * ***Forest cover (% cell coverage)***
+  * ***Petroleum activity (% cell coverage)***
+  * ***Drug activity (% cell coverage)***
+
+All PRIO variable names begin with the ***prio_*** prefix.
 
 ## Electoral Data
-- source: Constituency-Level Elections Archive  [CLEA] Lower Chamber Elections Archive [Version: June 17, 2019]
-  - Link: http://www.electiondataarchive.org/clea-lower-chamber-elections-archive.php
+Using data from the [Constituency-Level Elections Archive (CLEA) Lower Chamber Elections Archive](http://www.electiondataarchive.org/clea-lower-chamber-elections-archive.php), we merged in election turnout and results data from the 2002 Colombian lower-house election for the Chamber of Representatives. This election took place on March 10, 2002 approximately three weeks after the the breakdown in peace talks between the government and FARC. 
+
+Areas where FARC failed to realize its desired political goals may help to explain patterns of violence over the proceeding 2002 to 2009 period[^2006]. 
+
+[^2006]: Chamber of Representatives election results are also available for the 2006 election, but I thought using them would introduce too great a risk for endogeneity since it is likely that FARC-perpetuated violence had sufficient time to influence the results of the 2006 election in a way that id did not during the 2002 election due to the very short time-period between the breakdown of the peace negotiations with the government in late February 2002 and the election at the beginning of March 2002.
+
+Variables on 2002 election results start with the ***election_*** prefix. These include the vote share of major parties, the voter turnout, seats-won, and the name of the party winning the greatest number of seats in a constituency. The constituency in Colombia corresponds to the **Department** level. Therefore, these values repeat across municipalities contained within the same Department-constituency. 
+
+\newpage
+# VARIABLES: QUICK INFO
+ 
+- **ID_Mun** - Unique identifier assigned to each municipality. 
+  - Source: Shapefile, UN OCHA
+  - Missing: 0
+- **Department** - Department name.
+  - Source: Shapefile, UN OCHA
+  - Missing: 0
+- **Municipality** - Municipality name.
+  - Source: Shapefile, UN OCHA
+  - Missing: 0
+- **icews_** - Counts of violent events perpetuated by insurgents against both government and civilian actors.
+  - Unit - count: A raw count of recorded events aggregated to the municipality level 
+  - Unit - scale: A scaled version of the raw counts ranging [0,1] to account for over dispersion. 
+  - Source: [Integrated Crisis Early Warning System (ICEWS) Dataverse](https://dataverse.harvard.edu/dataverse/icews)
+  - Missing: 0
+- **ged_** - Counts of violent events perpetuated by insurgents against both government and civilian actors. 
+  - Unit - count: A raw count of recorded events aggregated to the municipality level 
+  - Unit - scale: A scaled version of the raw counts ranging [0,1] to account for over dispersion. 
+  - Source: [UCDP Georeferenced Event Dataset (GED) Global version 19.1](https://ucdp.uu.se/downloads/)
+  - Missing: 0
+- **cinep** - Counts of violent events perpetuated against both civilians and government reported in the `CINEP_HRV.dta` and `CINEP_AB.dta` data files.
+  - Unit - count: A raw count of recorded events aggregated to the municipality level 
+  - Unit - scale: A scaled version of the raw counts ranging [0,1] to account for over dispersion.
+  - Source: Jennifer Holmes, CINEP Data
+  - Missing: 0
+- **border_** - Binary indicator reporting whether a municipality shares a border with the feature referenced in the variable name.
+  - Unit: [0,1]
+  - Missing: 0
+- **distance_** - Distance in kilometers to feature identified in variable name.
+  - Unit: km
+  - Source: [GeoNames](http://download.geonames.org/export/dump/)
+  - Missing: 0
+- **area** - Municipality land areas measured in kilometers-squared estimated using an Albers Equal Area Conic for South America projection. The dataset also contains a logged version: ***area_km2_ln***.
+  - Unit: $km^2$ 
+  - Missing: 0
+- **bogota_dummy** - Dummy indicator for Bogota municipality intended to partially address potential event over-reporting in the capital.
+  - Unit: [0,1]
+  - Missing: 0
+- **google_ee_forest_per** - Percentage of municipality containing woody vegetation which exceeds 5 meters in height.
+  - Unit: Percent [0,100]
+  - Source: [NASA / USGS Global Land Survey](https://developers.google.com/earth-engine/datasets/catalog/GLCF_GLS_TCC), via Google Earth Engine
+  - Missing: 0
+- **google_ee_nl_index** - Index of visible and near-infrared nighttime light emissions from cities, towns, and other locations exhibiting consistent light patterns.
+  - Unit: Index [0, 63]
+  - Source: [Defense Meteorological Program (DMSP) Operational Line-Scan System](https://developers.google.com/earth-engine/datasets/catalog/NOAA_DMSP-OLS_NIGHTTIME_LIGHTS), via Google Earth Engine
+  - Missing: 0
+- **google_ee_pop_sum** - Total average municipality population between 2002 and 2009.
+  - Unit: Count
+  - Source: [WorldPop Global Project Population Data: Estimated Residential Population per 100x100m Grid Square](https://developers.google.com/earth-engine/datasets/catalog/WorldPop_GP_100m_pop), via Google Earth Engine
+  - Missing: 0
+- **google_terrain_ri_mean_km** - The total average change in elevation within a municipality ranging from 1km in relatively flat areas to over 90km in average elevation change in areas with particularly difficult terrain.
+  - Unit: km (elevation change)
+  - Source: [Earth Environment](http://www.earthenv.org/topography), @Amatulli2018.
+  - Missing: 0
+- **prio_mountains_mean** - Percent of PRIO-grid cell covered by mountainous terrain, aggregated to municipality-level by mean.
+  - Unit: Percent
+  - Source: [PRIO Grid](https://grid.prio.org/), @Tollefsen2012
+  - Missing: 0
+- **prio_capdist_mean** - Average PRIO-Grid cell (55x55km) centroid distance to Bogota.
+  - Unit: km
+  - Source: [PRIO Grid](https://grid.prio.org/), @Tollefsen2012
+  - Missing: 0
+- **prio_pop_sum** - Count of total persons living within a PRIO-grid cell. Aggregated to municipality-level by summing.
+  - Unit: Count 
+  - Source: [PRIO Grid](https://grid.prio.org/), @Tollefsen2012
+  - Missing: 0
+- **prio_ttime_mean** - The municipality-average travel-time in minutes to the nearest inhabited place with a population of 50,000.
+  - Unit: Minutes
+  - Source: [PRIO Grid](https://grid.prio.org/), @Tollefsen2012
+  - Missing: 0
+- **prio_forest_gc_mean** - Municipality average of the percentage of woody area covering its land surface, derived from the *Globalcover 2009 dataset v.2.3*.
+  - Unit: Percent
+  - Source: [PRIO Grid](https://grid.prio.org/), @Tollefsen2012
+  - Missing: 0
+- **prio_petroleum_mean** - Percentage of PRIO-Grid 55x55km cells within a municipality that contain oil-extraction activities. Ranges from 0 to approximately 40%.
+  - Unit: Percent (decimal)
+  - Source: [PRIO Grid](https://grid.prio.org/), @Tollefsen2012
+  - Missing: 0
+- **prio_drug_mean** - Percentage of PRIO-Grid 55x55km cells within a municipality that contain farmland devoted to cultivating coca bush, opium, or cannabis. Ranges from 0 to 40%.
+  - Unit: Percent (decimal)
+  - Source: [PRIO Grid](https://grid.prio.org/), @Tollefsen2012
+  - Missing: 0
+- **cinep_pop_mean** - Average population reported between 2002 and 2009 in the CINEP covariate data.
+  - Unit: Count
+  - Source: Jennifer Holmes, CINEP Data
+  - Missing: 142 (12.7%)
+- **cinep_popch_mean** - Year-to-year population change within a municipality.
+  - Unit: Percent (decimal)
+  - Source: Jennifer Holmes, CINEP Data
+  - Missing: 142 (12.7%)
+- **cinep_socservice_b08_mean** - Spending on social services: education, housing, water, and sanitation per capita. Constant 2008.
+  - Unit: Unknown currency (Peso?)
+  - Source: Jennifer Holmes, CINEP Data
+  - Missing: 142 (12.7%)
+- **cinep_forest_pctg_mean** - Percentage of land within a municipality reported as being covered by forest.
+  - Unit: Percent (decimal)
+  - Source: Jennifer Holmes, CINEP Data
+  - Missing: 142 (12.7%)
+- **cinep_slope_mean** - Average terrain slope within a municipality.
+  - Unit: Float [0, 32]
+  - Source: Jennifer Holmes, CINEP Data
+  - Missing: 142 (12.7%)
+- **election_2002_cons_vs** - Vote share of the Colombian Conservative Party (Partido Conservador Colombiano) in the 2002 lower-house parliamentary election. This variable is reported at the ***Department***-level and therefore is repeated over municipalities belonging to the same Department-constituency.
+  - Unit: Percentage
+  - Source: [Constituency-Level Elections Archive (CLEA)](http://www.electiondataarchive.org/data-and-documentation.php)
+  - Missing: 0
+- **election_2002_cons_seat** - The number of seats won by the Colombian Conservative party in the department to which the reporting municipality belongs.
+  - Unit: Count
+  - Source: [Constituency-Level Elections Archive (CLEA)](http://www.electiondataarchive.org/data-and-documentation.php)
+  - Missing: 0
+- **election_2002_libs_vs** - Vote share of the Colombian Liberal Party (Partido Conservador Colombiano) in the 2002 lower-house parliamentary election. This variable is reported at the ***Department***-level and therefore is repeated over municipalities belonging to the same Department-constituency.
+  - Unit: Vote share of the Colombian Liberal Party (Partido Liberal Colombiano) in the 2002 lower-house parliamentary election. This variable is reported at the ***Department***-level and therefore is repeated over municipalities belonging to the same Department-constituency.
+  - Source: [Constituency-Level Elections Archive (CLEA)](http://www.electiondataarchive.org/data-and-documentation.php)
+  - Missing: 0
+- **election_2002_libs_seat** - The number of seats won by the Colombian Liberal party in the department to which the reporting municipality belongs.
+  - Unit: Count
+  - Source: [Constituency-Level Elections Archive (CLEA)](http://www.electiondataarchive.org/data-and-documentation.php)
+  - Missing: 0
+- **election_2002_magnitude** - The number of seats available within a constituency and thereby a measure of a department's political importance in the lower-house election
+  - Unit: Count
+  - Source: [Constituency-Level Elections Archive (CLEA)](http://www.electiondataarchive.org/data-and-documentation.php)
+  - Missing: 0
+- **election_2002_valid_voters** - The total number of ballots cast within a constituency in the 2002 elections.
+  - Unit: Count
+  - Source: [Constituency-Level Elections Archive (CLEA)](http://www.electiondataarchive.org/data-and-documentation.php)
+  - Missing: 0
+- **election_2002_winning_party** - Indicator reporting the name of the political party which won the greatest percentage of total votes cast within a constituency.
+  - Unit: Categorical label
+  - Source: [Constituency-Level Elections Archive (CLEA)](http://www.electiondataarchive.org/data-and-documentation.php)
+  - Missing: 0
+- **election_2002_winning_party_vs** - The percentage of votes within a constituency secured by the winning party. Often this value is identical to either *election_2002_cons_vs* or *election_2002_libs_vs* for the districts won by the Conservative or Liberal party. However, it differs in constituencies where neither of those parties won.
+  - Unit: Percent
+  - Source: [Constituency-Level Elections Archive (CLEA)](http://www.electiondataarchive.org/data-and-documentation.php)
+  - Missing: 0
+- **centroid_mun_long** - Municipality centroid longitude. Converted from centroid point estimated with projected spatial object back into longlat coordinate system.
+  - Unit: Decimal degrees
+  - Missing: 0
+- **centroid_mun_lat** - Municipality centroid latitude. Converted from centroid point estimated with projected spatial object back into longlat coordinate system.
+  - Unit: Decimal degrees
+  - Missing: 0
+
+
+
+
+
+
+# Google Earth Engine - JavaScript code
+
+
+
+
+

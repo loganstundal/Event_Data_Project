@@ -15,15 +15,11 @@
 #            rather than prio grid data which does not apply well for small 
 #            municipalities in Colombia. 
 #
-#         -- To simplify shapefile object, refer to:
-#            https://cran.r-project.org/web/packages/rmapshaper/vignettes/rmapshaper.html
-#
 #-----------------------------------------------------------------------------#
 
 
 
 # ADMINISTRATIVE --------------------------------------------------------------
-
 #---------------------------#
 # Clear working directory   
 #---------------------------#
@@ -43,22 +39,23 @@ library(raster)
 #---------------------------#
 setwd("C:/Users/logan/GoogleDrive/UMN/RESEARCH/RA_John/Event_Data_Project")
 
+
+# _____________________ -----
 #---------------------------#
 # Load data                 
 #---------------------------#
-
 # COLOMBIA ADMIN --------------------------------------------------------------
 # Colombia Administrative units - gen. in 'Colombia_Admin_Units.R' script 
 # Projected to South America Albers Equal Area Conic
-load('data/colombia_admin.rdata')
+load('data/Administrative_units/colombia_admin.rdata')
 
 # ICEWS / GED -----------------------------------------------------------------
-# event_original <- read_csv('data/event_data/gedicews_20190627.csv',
-#                            col_types = cols(.default = "d"))
+event_original <- read_csv('data/event_data/gedicews_20190627.csv',
+                           col_types = cols(.default = "d"))
 event_farc     <- read_csv('data/event_data/gedicews_FARC_20190908.csv',
                            col_types = cols(.default = "d"))
-# event_noUNK    <- read_csv('data/event_data/gedicews_NoUKN_20190908.csv',
-#                            col_types = cols(.default = "d"))
+event_noUNK    <- read_csv('data/event_data/gedicews_NoUKN_20190908.csv',
+                           col_types = cols(.default = "d"))
 
 
 # CINEP -----------------------------------------------------------------------
@@ -81,65 +78,34 @@ prio.crs      <- st_crs("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs
 
 
 # GOOGLE EARTH ENGINE EXTRACTS ------------------------------------------------
-
 forest <- read_csv('data/covariate_data/googleearthengine/Colombia_ForestCover_municipality_2005.csv') %>%
-  select(2:4) %>% 
+  dplyr::select(c(2,4)) %>% 
   rename(ID_Mun = 1,
-         Municiaplity = 2,
-         forest = 3) %>%
+         google_ee_forest_per = 2) %>%
   mutate(ID_Mun = as.numeric(str_remove_all(ID_Mun, 'CO')))
 
 nightlight <- read_csv('data/covariate_data/googleearthengine/Colombia_NightLights_municipality_2002_2009_mean.csv') %>%
-  select(2:4) %>%
+  dplyr::select(c(2,4)) %>%
   rename(ID_Mun = 1, 
-         Municipality = 2,
-         nl = 3) %>%
+         google_ee_nl_index = 2) %>%
   mutate(ID_Mun = as.numeric(str_remove_all(ID_Mun, 'CO')))
 
 worldpop <- read_csv('data/covariate_data/googleearthengine/Colombia_Population_municipality_2002_2009_mean.csv') %>%
-  select(2:4) %>%
+  dplyr::select(c(2,4)) %>%
   rename(ID_Mun = 1,
-         Municipality = 2,
-         population = 3) %>%
+         google_ee_pop_sum = 2) %>%
   mutate(ID_Mun = as.numeric(str_remove_all(ID_Mun, 'CO')))
 
 tri <- read_csv('data/covariate_data/googleearthengine/Colombia_tri_municipality_mean.csv') %>%
-  select(2:4) %>%
+  dplyr::select(c(2,4)) %>%
   rename(ID_Mun = 1,
-         Municipality = 2,
-         population = 3) %>%
+         google_terrain_ri_mean_m = 2) %>%
   mutate(ID_Mun = as.numeric(str_remove_all(ID_Mun, 'CO')))
 
 
-# GeoNames Populated Places ---------------------------------------------------
-# gnames <- read_tsv(file      = 'data/covariate_data/geonames_co/co.txt',
-#                    col_names = c('geoname_id',
-#                                  'name',
-#                                  'ascii_name',
-#                                  'alternate_name',
-#                                  'latitude',
-#                                  'longitude',
-#                                  'feature_class',
-#                                  'feature_code',
-#                                  'c_code',
-#                                  'cc2',
-#                                  'admin1_code',
-#                                  'admin2_code',
-#                                  'admin3_code',
-#                                  'admin4_code',
-#                                  'population',
-#                                  'elevation',
-#                                  'dem',
-#                                  'time_zone',
-#                                  'mod_date'),
-#                    col_types = paste(c('d','c','c','c','d','d','c','c','c','c',
-#                                        'c','c','c','c','d','d','d','c','D'), collapse = ''))
-
-# ADDED TO "COLOMBIA_ADMIN_UNITS.R" SCRIPT ON 1/25.
-
 # ELECTIONS: 2002, 2006 -------------------------------------------------------
-load('data/covariate_data/elections/clea_lc_20190617.rdata')
-elec <- clea_lc_20190617;rm(clea_lc_20190617)
+# Election covariate data:
+elec <- read_csv('data/covariate_data/elections/election_tidy.csv')
 
 #---------------------------#
 # Load functions            
@@ -172,65 +138,55 @@ elec <- clea_lc_20190617;rm(clea_lc_20190617)
   .scaler <- function(x) log(x+1) / max(log(x+1))
 }
 
+# _____________________ ----
 # TIDY DATA -------------------------------------------------------------------
 
+#---------------------------------#
+# STUDY YEARS 
+#---------------------------------#
 years <- seq(2002,2009) 
-# For John 6/26 meeting, was only 2005 data
 # Re: Ben email 6/27 -- switched from test of 00-06 to 02-09
 
-#---------------------------------#
-# Municipality geography
-#---------------------------------#
-# colombia <- colombia %>%
-#   mutate(km2    = as.numeric(st_area(.) / 1e6)) %>%
-#   mutate(km2_ln = log(km2))
-  # JAN 25 - DUMPED THIS INTO COLOMBIA_ADMIN_UNITS.R PREP SCRIPT -- CAN DELETE
 
 # ICEWS / GED -----------------------------------------------------------------
 
 #---------------------------------#
-# ORIGINAL - POLMETH 2019 version #
+# ICEWS - ORIGINAL - POLMETH 2019 version 
 #---------------------------------#
-# event_original <- event_original %>%
-#   dplyr::select(year,latitude,longitude, sort(names(.))) %>%
-#   filter(year %in% years) %>%
-#   rowwise() %>%
-#   mutate(icews_original       = rowSums(cbind(rebcivicews, rebgovicews),na.rm=T),
-#          icews_stand_original = rowSums(cbind(rebcivicewsstand, rebgovicewsstand),na.rm=T),
-#          ged_original         = rowSums(cbind(rebcivged, rebgovged),na.rm=T),
-#          ged_stand_original   = rowSums(cbind(rebcivgedstand, rebgovgedstand),na.rm=T)) %>%
-#   dplyr::select(latitude, longitude, icews_original, icews_stand_original, 
-#                 ged_original, ged_stand_original)
-# # Note -- dropping year because we are dropping the temporal dimension.  
+event_original <- event_original %>%
+  dplyr::select(year,latitude,longitude, sort(names(.))) %>%
+  filter(year %in% years) %>%
+  rowwise() %>%
+  mutate(icews_original       = rowSums(cbind(rebcivicews, rebgovicews),na.rm=T),
+         icews_original_stand = rowSums(cbind(rebcivicewsstand, rebgovicewsstand),na.rm=T),
+         ged_original         = rowSums(cbind(rebcivged, rebgovged),na.rm=T),
+         ged_original_stand   = rowSums(cbind(rebcivgedstand, rebgovgedstand),na.rm=T)) %>%
+  dplyr::select(latitude, longitude, 
+                icews_original, icews_original_stand,
+                ged_original, ged_original_stand)
 
-# coordinates(event_original) <- c("longitude","latitude")
-# proj4string(event_original) <- CRS("+proj=longlat +datum=WGS84")
-# event_original  <- event_original %>%
-#   st_as_sf() %>%
-#   st_transform(., st_crs(colombia))
+coordinates(event_original) <- c("longitude","latitude")
+proj4string(event_original) <- CRS("+proj=longlat +datum=WGS84")
+event_original  <- event_original %>%
+  st_as_sf() %>%
+  st_transform(., st_crs(colombia))
   
-
 #---------------------------------#
-# ICEWS - No unidentified actors  #
+# ICEWS - No unidentified actors  
 #---------------------------------#
-# event_noUNK <- event_noUNK %>%
-#   dplyr::select(year,latitude,longitude, sort(names(.))) %>%
-#   filter(year %in% years) %>%
-#   rowwise() %>%
-#   mutate(icews_noUNK       = rowSums(cbind(rebcivicews, rebgovicews),na.rm=T),
-#          icews_stand_noUNK = rowSums(cbind(rebcivicewsstand, rebgovicewsstand),na.rm=T),
-#          ged_noUNK         = rowSums(cbind(rebcivged, rebgovged),na.rm=T),
-#          ged_stand_noUNK   = rowSums(cbind(rebcivgedstand, rebgovgedstand),na.rm=T)) %>%
-#   dplyr::select(latitude, longitude, icews_noUNK, icews_stand_noUNK, 
-#                 ged_noUNK, ged_stand_noUNK)
-# # Note -- dropping year because we are dropping the temporal dimension.  
-# 
-# coordinates(event_noUNK) <- c("longitude","latitude")
-# proj4string(event_noUNK) <- CRS("+proj=longlat +datum=WGS84")
-# event_noUNK  <- event_noUNK %>%
-#   st_as_sf() %>%
-#   st_transform(., st_crs(colombia))
-
+event_noUNK <- event_noUNK %>%
+  dplyr::select(year,latitude,longitude, sort(names(.))) %>%
+  filter(year %in% years) %>%
+  rowwise() %>%
+  mutate(icews_noUNK       = rowSums(cbind(rebcivicews, rebgovicews),na.rm=T),
+         icews_noUNK_stand = rowSums(cbind(rebcivicewsstand, rebgovicewsstand),na.rm=T)) %>%
+  dplyr::select(latitude, longitude, icews_noUNK, icews_noUNK_stand)
+ 
+coordinates(event_noUNK) <- c("longitude","latitude")
+proj4string(event_noUNK) <- CRS("+proj=longlat +datum=WGS84")
+event_noUNK  <- event_noUNK %>%
+  st_as_sf() %>%
+  st_transform(., st_crs(colombia))
 
 #---------------------------------#
 # ICEWS AND GED - ONLY FARC       #
@@ -240,12 +196,12 @@ event_farc <- event_farc %>%
   filter(year %in% years) %>%
   rowwise() %>%
   mutate(icews_farc       = rowSums(cbind(rebcivicews, rebgovicews),na.rm=T),
-         icews_stand_farc = rowSums(cbind(rebcivicewsstand, rebgovicewsstand),na.rm=T),
+         icews_farc_stand = rowSums(cbind(rebcivicewsstand, rebgovicewsstand),na.rm=T),
          ged_farc         = rowSums(cbind(rebcivged, rebgovged),na.rm=T),
-         ged_stand_farc   = rowSums(cbind(rebcivgedstand, rebgovgedstand),na.rm=T)) %>%
-  dplyr::select(latitude, longitude, icews_farc, icews_stand_farc, 
-                ged_farc, ged_stand_farc)
-# Note -- dropping year because we are dropping the temporal dimension.  
+         ged_farc_stand   = rowSums(cbind(rebcivgedstand, rebgovgedstand),na.rm=T)) %>%
+  dplyr::select(latitude, longitude, 
+                icews_farc, icews_farc_stand, 
+                ged_farc, ged_farc_stand)
 
 coordinates(event_farc) <- c("longitude","latitude")
 proj4string(event_farc) <- CRS("+proj=longlat +datum=WGS84")
@@ -258,162 +214,109 @@ event_farc  <- event_farc %>%
 prio <- prio.yr %>%
   left_join(.,prio.static,by='gid') %>%
   filter(gwno %in% c(100,101,130,135,95,140)) %>%
-  # mutate(petroleum_s = ifelse(is.na(petroleum_s)==T,0,petroleum_s),
-  #        petroleum_y = ifelse(is.na(petroleum_y)==T,0,petroleum_y),
-  #        drug_y      = ifelse(is.na(drug_y)==T,0,drug_y))%>%
-  dplyr::select(gid,year,gwno,everything(),-c(row,col)) %>%
+  mutate(prio_petroleum_s_mean = ifelse(is.na(petroleum_s)==T,0,petroleum_s),
+         prio_petroleum_y_mean = ifelse(is.na(petroleum_y)==T,0,petroleum_y),
+         prio_drug_y_mean      = ifelse(is.na(drug_y)==T,0,drug_y))%>%
+  rename(prio_mountains_mean   = mountains_mean,
+         prio_capdist_mean     = capdist,
+         prio_pop_gpw_mean     = pop_gpw_sum,
+         prio_ttime_mean       = ttime_mean,
+         prio_forest_gc_mean   = forest_gc) %>%
   group_by(gid) %>%
   summarise_each( ~ mean(., na.action = NULL, na.rm = TRUE))
 
 # PRIO - Spatial extract
-prio_vars <- c('mountains_mean','capdist','pop_gpw_sum','ttime_mean','forest_gc')
+prio_vars <- c('prio_mountains_mean','prio_capdist_mean','prio_pop_gpw_mean',
+               'prio_ttime_mean','prio_forest_gc_mean',
+               'prio_petroleum_s_mean', 'prio_petroleum_y_mean','prio_drug_y_mean')
 
 prio <- rasterFromXYZ(prio[,c('xcoord','ycoord',prio_vars)],
                       res = c(0.5, 0.5),
                       crs = prio.crs$proj4string)
-
 prio <- projectRaster(prio, crs = st_crs(colombia)$proj4string) 
-
 rm(prio.yr, prio.static, prio.crs)
 
 
 # CINEP -----------------------------------------------------------------------
-cinep1_grid <- cinep1 %>%
-  dplyr::select(Department, ID_Dept, Municipality, ID_Mun) %>%
-  distinct()
-
-cinep2_grid <- cinep2 %>%
-  dplyr::select(Department, ID_Dept, Municipality, ID_Mun) %>%
-  distinct()
-
 cinep1 <- cinep1 %>%
   filter(Year %in% years & 
-           (Dead        != 0 |
-              Hurt        != 0 |
-              Kidnapped   != 0 |
-              Disappeared != 0 |
-              Tortures    != 0 |
-              Attempts    != 0 |
-              Arbitrary_detention != 0)) %>%
+        (Dead        != 0 |
+         Hurt        != 0 |
+         Kidnapped   != 0 |
+         Disappeared != 0 |
+         Tortures    != 0 |
+         Attempts    != 0 |
+         Arbitrary_detention != 0)) %>%
   group_by(ID_Mun) %>%
-  count() %>%
-  left_join(x  = ., 
-            y  = cinep1_grid, 
-            by = 'ID_Mun') %>%
-  mutate(Department   = as.character(Department),
-         Municipality = as.character(Municipality))
+  count()
 
 cinep2 <- cinep2 %>%
   filter(Year %in% years & 
            (Dead        != 0 |
-              Hurt        != 0 |
-              Kidnapped   != 0 |
-              Disappeared != 0 |
-              Tortures    != 0 |
-              Attempts    != 0 |
-              Arbitrary_detention != 0)) %>%
+            Hurt        != 0 |
+            Kidnapped   != 0 |
+            Disappeared != 0 |
+            Tortures    != 0 |
+            Attempts    != 0 |
+            Arbitrary_detention != 0)) %>%
   group_by(ID_Mun) %>%
-  count() %>%
-  left_join(x  = .,
-            y  = cinep2_grid,
-            by = 'ID_Mun') %>%
-  mutate(Department   = as.character(Department),
-         Municipality = as.character(Municipality))
-
+  count()
+  
 CINEP <- cinep2 %>%
   full_join(.,cinep1,by = 'ID_Mun') %>%
-  mutate(CINEP = sum(n.x,n.y, na.rm=T),
-         Deptartment.x  = ifelse(is.na(Department.x),Department.y,Department.x),
-         Municipality.x = ifelse(is.na(Municipality.x),Municipality.y,Municipality.x)) %>%
-  dplyr::select(ID_Mun, Department.x, Municipality.x, CINEP) %>%
-  rename(Department   = Department.x,
-         Municipality = Municipality.x)
+  mutate(cinep = sum(n.x,n.y, na.rm=T)) %>%
+  dplyr::select(ID_Mun, cinep) %>%
+  haven::zap_formats() %>%
+  as.data.frame()
 
-rm(cinep1,cinep2,cinep1_grid,cinep2_grid)
+rm(cinep1,cinep2)
 
 # Municipality covariates -------------
 cinep_cov <- cinep_cov %>%
   filter(year %in% years) %>%
+  dplyr::select(ID_MUN, pop, popch, SocServicespc_b08, Forest_pctg, slope) %>%
   group_by(ID_MUN) %>%
-  summarise(Forest_pctg = mean(Forest_pctg, na.rm = TRUE),
-            slope       = mean(slope, na.rm = TRUE)) %>%
-  rename(ID_Mun = ID_MUN) %>%
+  summarise_each( ~ mean(., na.action = NULL, na.rm = TRUE)) %>%
+  rename(ID_Mun                       = ID_MUN, 
+         cinep_pop_mean               = pop,
+         cinep_popch_mean             = popch,
+         cinep_socservicespc_b08_mean = SocServicespc_b08,
+         cinep_forest_pctg_mean       = Forest_pctg,
+         cinep_slope_mean             = slope) %>%
+  ungroup() %>%
   mutate(ID_Mun = as.numeric(ID_Mun))
 
 rm(years)
 
-
-# GOOGLE EARTH RASTERS --------------------------------------------------------
-
-
-
-# GEONAMES --------------------------------------------------------------------
-# Extract the location and populations of the Department capitals:
-
-# table(gnames$feature_code =='PPLA') # Great! There are 31 departments in the data since the islands are dropped.
-# 
-# gnames <- gnames %>%
-#   filter(feature_class == 'P',                      # city or village
-#          feature_code  == 'PPLA') %>%               # seat of a first-order administrative division
-#   dplyr::select(name, alternate_name, latitude, longitude, population)
-# 
-# coordinates(gnames) <- c('longitude','latitude')
-# 
-# gnames <- gnames %>% st_as_sf()
-# st_crs(gnames) <- "+proj=longlat +datum=WGS84"
-
-# ###
-
-# ^ ADDED TO COLOMBIA_ADMIN_UNITS.r SCRIPT ON 1/25
-# Temp - temp temp
-
-col <- colombia
-col <- st_transform(col, crs = "+proj=longlat +datum=WGS84")
-
-ggplot() +
-  geom_sf(data = col, fill = 'transparent') +
-  geom_sf(data = gnames, aes(size = population),
-          color = 'red', size = 1.25)
-
-###
-
-
-# ELECTION RESULTS 2002, 2006 -------------------------------------------------
-
-elec <- elec %>%
-  filter(ctr_n == 'Colombia',
-         yr %in% c(2002,2006)) %>%
-  select(ctr_n, yr, cst_n, cst, pty_n, pty, vv1, pv1, pvs1, seat)
 
 
 # _____________________ ----
 # MERGE DATA-------------------------------------------------------------------
 
 # ICEWS / GED -------------------------
-# Col.DF <-> EVENT DATA               #
 #-------------------------------------#
-event_original <- .spAg(shp = colombia,
+event_original <- .spAg(shp = colombia[,c('ID_Mun','geometry')],
                         pts = event_original,
                         fn  = sum,
                         vr  = names(event_original)) %>% 
   as.data.frame() %>%
-  dplyr::select(-Department, -Municipality, - km2, -km2_ln, -ID) %>%
+  dplyr::select(-ID) %>%
   mutate(geometry = NULL)
 
-event_noUNK <- .spAg(shp = colombia,
+event_noUNK <- .spAg(shp = colombia[,c('ID_Mun','geometry')],
                       pts = event_noUNK,
                       fn  = sum,
                       vr  = names(event_noUNK)) %>%
   as.data.frame() %>%
-  dplyr::select(-Department, -Municipality, - km2, -km2_ln, -ID) %>%
+  dplyr::select(-ID) %>%
   mutate(geometry = NULL)
 
-event_farc <- .spAg(shp = colombia,
+event_farc <- .spAg(shp = colombia[,c('ID_Mun','geometry')],
                     pts = event_farc,
                     fn  = sum,
                     vr  = names(event_farc)) %>%
   as.data.frame() %>%
-  dplyr::select(-Department, -Municipality, - km2, -km2_ln, -ID) %>%
+  dplyr::select(-ID) %>%
   mutate(geometry = NULL)
 
 colombia <- colombia %>%
@@ -424,28 +327,32 @@ colombia <- colombia %>%
 rm(event_original, event_noUNK, event_farc)
 
 # PRIO --------------------------------
-# Col.DF <-> PRIO                     #
 #-------------------------------------#
 for(x in 1:length(prio_vars)) {
   var = prio_vars[x]
+  print(sprintf('Working on variable: %s...', var))
   
-  if(var == 'pop_gpw_sum'){
-    tmp = raster::extract(prio[[var]],colombia.shp,fun=sum,na.rm=T)
+  
+  if(var == 'prio_pop_gpw_mean'){
+    tmp = raster::extract(prio[[var]],colombia,fun=sum,na.rm=T)
   } else{
-    tmp = raster::extract(prio[[var]],colombia.shp,fun=mean,na.rm=T)
+    tmp = raster::extract(prio[[var]],colombia,fun=mean,na.rm=T)
   }
   
-  colombia[paste('PRIO', var, sep = '_')] = as.vector(tmp)
+  colombia[var] = as.vector(tmp)
   
-  if(var %in% c('capdist','pop_gpw_sum','ttime_mean')){
-    colombia[paste('PRIO',var,'ln', sep = '_')] = log(colombia[paste('PRIO', var, sep = '_')])
+  if(var %in% c('prio_capdist_mean',
+                'prio_pop_gpw_mean',
+                'prio_ttime_mean')){
+    tmp = colombia[,c(var)]
+    tmp$geometry <- NULL
+    
+    colombia[paste0(var, '_ln')] = log(as.vector(tmp[var]))
   }
-}
-rm(prio_vars, prio, var, x, tmp)
+};rm(prio_vars, prio, var, x, tmp)
 
 
 # CINEP -------------------------------
-# Col.DF <-> CINEP                    #
 #-------------------------------------#
 colombia <- colombia %>%
   left_join(.,CINEP, by = 'ID_Mun')
@@ -453,89 +360,158 @@ rm(CINEP)
 
 
 # Municipality covariates -------------
-# Col.DF <-> Municipality covariates  #
 #-------------------------------------#
 colombia <- colombia %>%
-  left_join(., m_cov, by = 'ID_Mun')
-rm(m_cov)
+  left_join(., cinep_cov, by = 'ID_Mun')
+rm(cinep_cov)
 
 
+# Google Earth Engine extracts --------
 #-------------------------------------#
-# SF <-> Final data tidy              #
+colombia <- colombia %>%
+  left_join(., y = forest,     by = 'ID_Mun') %>%
+  left_join(., y = nightlight, by = 'ID_Mun') %>%
+  left_join(., y = worldpop,   by = 'ID_Mun') %>%
+  left_join(., y = tri,        by = 'ID_Mun')
+rm(forest, nightlight, worldpop, tri)
+
+
+# Election Results, 2002 --------------
 #-------------------------------------#
-colombia <- colombia.shp %>%
-  st_as_sf() %>%
-  left_join(., colombia, by = 'ID_Mun') %>%
+# Since this is a one-to-many, need to use plyr::join
+col_grid <- colombia[,c('ID_Mun','Department')]
+col_grid$geometry <- NULL
+col_grid$Department <- str_to_lower(col_grid$Department)
+
+col_grid <- plyr::join(x     = col_grid, 
+                       y     = elec, 
+                       by    = 'Department', 
+                       type  ='left', 
+                       match ='all') %>%
+  dplyr::select(-Department)
+
+colombia <- colombia %>%
+  left_join(., y = col_grid, by = 'ID_Mun')
+rm(col_grid, elec)
+
+
+# Dependent variable - agreement indicators -----
+# --------------------------------------------- #
+# Create agreement indicators between ICEWS / GED, ICEWS / CINEP,
+# and GED / CINEP regarding both agreement in exact counts and 
+# that events took place [>0]
+# All versions are binary:
+
+colombia <- colombia %>%
+mutate(icews_ged_agree_count   = case_when(icews_farc == ged_farc ~ 1,
+                                          TRUE ~ 0),
+       icews_ged_agree_any     = case_when((icews_farc > 0) == (ged_farc > 0) ~ 1,
+                                          TRUE ~ 0),
+       icews_cinep_agree_count = case_when(icews_farc == cinep ~ 1, 
+                                           TRUE ~ 0),
+       icews_cinep_agree_any   = case_when((icews_farc > 0) == (cinep > 0) ~ 1,
+                                           TRUE ~ 0),
+       ged_cinep_agree_count   = case_when(ged_farc == cinep ~ 1, 
+                                           TRUE ~ 0),
+       ged_cinep_agree_any     = case_when((ged_farc > 0) == (cinep > 0) ~ 1,
+                                           TRUE ~ 0))
   
+
+
+# _____________________ ----  TARGET OF 76 (82) VARIABLES AFTER OPERATION.
+# FINAL TIDY ------------------------------------------------------------------
+colombia <- colombia %>%
+  
+  # Create scaled variable versions
   mutate(icews_original_scale       = .scaler(icews_original),
-         icews_stand_original_scale = .scaler(icews_stand_original),
+         icews_original_stand_scale = .scaler(icews_original_stand),
          ged_original_scale         = .scaler(ged_original),
-         ged_stand_original_scale   = .scaler(ged_stand_original),
-         CINEP                      = ifelse(is.na(CINEP), 0, CINEP)) %>%
+         ged_original_stand_scale   = .scaler(ged_original_stand),
+         cinep                      = ifelse(is.na(cinep), 0, cinep)) %>%
   
-  mutate(icews_noUNK_scale       = .scaler(icews_noUNK),
-         icews_stand_noUNK_scale = .scaler(icews_stand_noUNK),
-         ged_noUNK_scale         = .scaler(ged_noUNK),
-         ged_stand_noUNK_scale   = .scaler(ged_stand_noUNK)) %>%
+  mutate(icews_noUNK_scale          = .scaler(icews_noUNK),
+         icews_noUNK_stand_scale    = .scaler(icews_noUNK_stand)) %>%
   
-  mutate(icews_farc_scale       = .scaler(icews_farc),
-         icews_stand_farc_scale = .scaler(icews_stand_farc),
-         ged_farc_scale         = .scaler(ged_farc),
-         ged_stand_farc_scale   = .scaler(ged_stand_farc),
-         CINEP_scale            = .scaler(CINEP)) %>%
+  mutate(icews_farc_scale           = .scaler(icews_farc),
+         icews_farc_stand_scale     = .scaler(icews_farc_stand),
+         ged_farc_scale             = .scaler(ged_farc),
+         ged_farc_stand_scale       = .scaler(ged_farc_stand),
+         cinep_scale                = .scaler(cinep)) %>%
   
+  # Create a binary indicator for Bogota
+  mutate(bogota_dummy = ifelse(Department == 'Bogota D.C.', 1, 0)) %>%
   
-  mutate(Department.y   = str_to_title(ifelse(is.na(Department.y), Department.x, Department.y)),
-         Municipality.y = str_to_title(ifelse(is.na(Municipality.y), Municipality.x, Municipality.y))) %>%
-  rename(Department   = Department.y,
-         Municipality = Municipality.y) %>%
-  mutate(bogata = ifelse(Department == 'BOGOTA, D.C.', 1, 0)) %>%
+  rename(area_km2    = km2, 
+         area_km2_ln = km2_ln) %>%
+  
   dplyr::select(ID_Mun, Department, Municipality,
                 
-                icews_original, icews_original_scale,
-                icews_stand_original, icews_stand_original_scale,
-                ged_original, ged_original_scale,
-                ged_stand_original, ged_stand_original_scale, 
+                dplyr::starts_with('icews'), 
+                dplyr::starts_with('ged'),
+                cinep, cinep_scale, 
                 
-                icews_noUNK, icews_noUNK_scale,
-                icews_stand_noUNK, icews_stand_noUNK_scale,
-                ged_noUNK, ged_noUNK_scale,
-                ged_stand_noUNK, ged_stand_noUNK_scale,
+                dplyr::starts_with('border'),
+                dplyr::starts_with('distance'),
+                dplyr::starts_with('area'),
+                bogota_dummy,
                 
-                icews_farc, icews_farc_scale,
-                icews_stand_farc, icews_stand_farc_scale,
-                ged_farc, ged_farc_scale,
-                ged_stand_farc, ged_stand_farc_scale,
+                dplyr::starts_with('google'),
+                dplyr::starts_with('prio'),
                 
-                CINEP, CINEP_scale,
+                cinep_pop_mean, cinep_popch_mean, 
+                cinep_socservicespc_b08_mean, 
+                cinep_forest_pctg_mean, cinep_slope_mean,
                 
-                PRIO_mountains_mean, 
-                PRIO_capdist, PRIO_capdist_ln,
-                PRIO_pop_gpw_sum, PRIO_pop_gpw_sum_ln,
-                PRIO_ttime_mean, PRIO_ttime_mean_ln,
-                PRIO_forest_gc, 
+                dplyr::starts_with('election'), 
                 
-                Forest_pctg, slope,
+                centroid_mun_long, centroid_mun_lat, 
                 
-                km2, km2_ln, Shape_Area)
+                centroid_mun_proj, geometry)
+
+# Reset geometry to the multipolygon (only want to preserve the projected centroids for possible mapping)
+colombia <- st_set_geometry(colombia, colombia$geometry)
+
+# _____________________ ----
+# COLOMBIA LEVEL 0 ------------------------------------------------------------
+colombia_lvl0 <- read_rds(url('https://biogeo.ucdavis.edu/data/gadm3.6/Rsf/gadm36_COL_0_sf.rds'))
+colombia_lvl0 <- st_transform(colombia_lvl0, crs = st_crs(colombia))
+
+colombia_lvl0 <- st_crop(x = colombia_lvl0, 
+                         y = st_bbox(colombia))
+
+# SPATIAL WEIGHTS -------------------------------------------------------------
+library(spdep)
+
+# Create a spatial polygons dataframe to pass to 'poly2nb':
+colombia.shp <- colombia[,c('ID_Mun','geometry')]
+colombia.shp$centroid_mun_proj <- NULL
+colombia.shp <- st_set_geometry(colombia.shp, colombia.shp$geometry)
+colombia.shp <- as_Spatial(from = colombia.shp, 
+                           IDs  = colombia.shp$ID_Mun)
 
 
+# Estimate spatial neighbors - queen's contiguity matrix and lists:
+nb.r        <- poly2nb(pl        = colombia.shp,                    
+                       row.names = colombia.shp$ID_Mun,                 
+                       queen     = TRUE)                            
+nb.lst      <- nb2listw(nb.r)                                       
+W_matrix    <- nb2mat(neighbours = nb.r, 
+                      style      = "B")                            
+
+colnames(W_matrix) <- rownames(W_matrix)     
+
+rm(colombia.shp)
+
+# _____________________ ----
+# SAVE ------------------------------------------------------------------------
 
 
+# CSV file for sharing with Ben and John
+write_csv(x    = colombia, 
+          path = 'data/colombia.csv')
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+# Rdata file for future modeling
+save.image(file = 'data/colombia.Rdata')
 
 
 

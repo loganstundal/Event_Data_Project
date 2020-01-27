@@ -63,7 +63,7 @@
 #---------------------------#
 rm(list = ls())
 dev.off()
-.rs.restartR()
+# .rs.restartR()
 
 #---------------------------#
 # Load required libraries
@@ -78,54 +78,70 @@ library(cowplot)
 #---------------------------#
 # Set working directory
 #---------------------------#
-setwd('c:/users/logan/googledrive/umn/research/event_data_project/ra_john')
+setwd('c:/users/logan/googledrive/umn/research/ra_john/event_data_project/')
 
 #---------------------------#
 # Load data
 #---------------------------#
-forest <- raster('data/covariate data/googleearthengine/colombia_forestcover_2005.tif')
-col0   <- read_rds(url('https://biogeo.ucdavis.edu/data/gadm3.6/Rsf/gadm36_COL_0_sf.rds'))
+
+# COLOMBIA VECTOR AND ATTRIBUTE DATA
+load('data/colombia.rdata')
+
+# RASTERS
+forest <- raster('data/covariate_data/googleearthengine/colombia_forestcover_2005.tif')
+# night  <- raster('data/covariate_data/googleearthengine/colombia_NightLights_2002_2009_mean.tif')
+# pop    <- raster('data/covariate_data/googleearthengine/Colombia_Population_2002_2009_mean.tif')
+# tri    <- raster('data/covariate_data/googleearthengine/Colombia_TRI_mean.tif')
+
+# PRIO RASTER DATA
 prio   <- read_csv('c:/users/logan/googledrive/umn/research/data/priogrid/PRIO-GRID Static Variables - 2018-08-12.csv') %>%
           rename(ID_Mun = 1)
-load('c:/users/logan/googledrive/umn/research/ra_john/event_data_project/data/colombia_admin.rdata')
-col2   <- colombia;rm(colombia)
+
 
 # TIDY DATA -------------------------------------------------------------------
-
-# Work PRIO into a raster
 # Convert prio to a raster
-prio <- rasterFromXYZ(xyz = prio[,c('xcoord','ycoord','mountains_mean')],
+prio <- rasterFromXYZ(xyz = prio[,c('xcoord','ycoord','forest_gc')],
                       res = c(0.5, 0.5),
                       crs = crs("+proj=longlat +datum=WGS84 +no_defs"))
 
 
 # Since I am not performing any spatial analysis on these data, they do NOT need
 # to be projected, so convert all to longlat here for easier mapping. 
-unproj <- st_crs("+proj=longlat +datum=WGS84 +no_defs")
-col0 <- st_transform(col0, unproj)
-col2 <- st_transform(col2, unproj)
-forest <- projectRaster(forest, "+proj=longlat +datum=WGS84 +no_defs")
-
+unproj        <- st_crs("+proj=longlat +datum=WGS84 +no_defs")
+colombia_lvl0 <- st_transform(colombia_lvl0, unproj)
+colombia      <- st_transform(colombia, unproj)
+forest        <- projectRaster(from = forest, crs = "+proj=longlat +datum=WGS84 +no_defs")
+# night         <- projectRaster(night,  "+proj=longlat +datum=WGS84 +no_defs")
+# pop           <- projectRaster(pop,    "+proj=longlat +datum=WGS84 +no_defs")
+# tri           <- projectRaster(tri,    "+proj=longlat +datum=WGS84 +no_defs")
 
 # Clip islands out of large map
-col0 <- st_crop(col0, extent(-80,-66, -5, 15))
+colombia_lvl0 <- st_crop(colombia_lvl0, extent(-80,-66, -5, 15))
 
 
 # Create object for zoomed-in extent
 e <- extent(-74, -73, 5, 6)
 
 # Create objects for zoomed map:
-col2 <- st_crop(col2, e)
-prio <- crop(prio, e)
-forest <- crop(forest, e)
+colombia <- st_crop(colombia, e)
+prio     <- crop(prio, e)
+forest   <- crop(forest, e)
 
+
+
+# Downscale Raster
+# downsample <- 100
+# df2 <- df %>%
+#   group_by(x = downsample * round(x / downsample),
+#            y = downsample * round(y / downsample)) %>%
+#   summarise(z = mean(z))
 
 # Convert rasters to DFs for plotting with geom_raster()
 forest <- as.data.frame(forest, xy = TRUE) %>%
   rename(z = colombia_forestcover_2005)
 
 prio <- as.data.frame(prio, xy = TRUE) %>%
-  rename(z = mountains_mean) %>%
+  rename(z = forest_gc) %>%
   mutate(z1 = z,
          z = fct_inorder(as_factor(z)))
 
@@ -153,14 +169,14 @@ m1.nasa <- ggplot() +
               aes(x    = x,
                   y    = y,
                   fill = z),
-              alpha = 0.6) +
+              alpha = 0.85) +
   labs(title = 'NASA GLS, ~30m res.') +
   scale_fill_gradientn(name     = '',
                        colours  = rev(terrain.colors(20)),
                        na.value = 'transparent',
                        # guide    = FALSE,
                        limits   = c(0,100)) +
-  geom_sf(data = col2, fill = 'transparent') +
+  geom_sf(data = colombia, fill = 'transparent') +
   theme_minimal() +
   theme(axis.text  = element_blank(),
         axis.title = element_blank(),
@@ -172,17 +188,18 @@ m1.prio <- ggplot() +
               aes(x    = x,
                   y    = y,
                   fill = z1), 
-              alpha = 0.6) +
+              alpha = 0.85) +
   labs(title = 'PRIO Grid, ~55km res.') +
   scale_fill_gradientn(name     = '',
                        colours  = rev(terrain.colors(20)),
                        na.value = 'transparent',
-                       limits   = c(0,1),
+                       limits   = c(0,100),
                        # guide    = FALSE,
-                       labels   = function(x) round(x*100,0)) +
+                       # labels   = function(x) round(x*100,0)
+                       ) +
   # scale_fill_manual(values = alpha(rev(terrain.colors(4)), 0.2),
   #                   guide  = FALSE) +
-  geom_sf(data = col2, fill = 'transparent') +
+  geom_sf(data = colombia, fill = 'transparent') +
   theme_minimal() +
   theme(axis.text  = element_blank(),
         axis.title = element_blank(),
@@ -190,7 +207,7 @@ m1.prio <- ggplot() +
 
 # Inset map:
 m2 <- ggplot() +
-  geom_sf(data = col0, fill = '#fff7bc') +
+  geom_sf(data = colombia_lvl0, fill = '#fff7bc') +
   geom_rect(data = bound, aes(xmin = xmin,
                               xmax = xmax,
                               ymin = ymin,
@@ -223,7 +240,7 @@ m3 <- ggdraw(xlim = c(0, 70), ylim = c(0, 100)) +
              x = 35, y = 95) + 
   draw_label(label = paste0(sprintf('Plot date: %s.\n',format(Sys.Date(),"%B %d, %Y")),
                             sprintf('Area contains %d municipalities covering approximately %d square km.',
-                                    nrow(col2), 110*110)),
+                                    nrow(colombia), 110*110)),
              x = 60, 
              y = 7,
              size = 10,

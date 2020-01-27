@@ -205,3 +205,24 @@ ggsave(filename = 'Plots/icews2.png',
 # UGH... so much time fucking around and this is the format I want. MUCH simpler!
 # update above functions to reflect this!
 
+
+
+
+
+
+
+
+# Playing with new data 1/26
+ggplot(colombia) + 
+  geom_sf(aes(fill = google_ee_forest_per)) + 
+  theme_map() +
+  scale_fill_continuous('Forest (%)',
+                        palette = )
+
+
+
+
+
+
+
+

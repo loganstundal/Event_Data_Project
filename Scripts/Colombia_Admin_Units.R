@@ -50,7 +50,7 @@ setwd(paste('C:/Users/logan/GoogleDrive/UMN/RESEARCH/RA_JOHN/Event_Data_Project'
 # Albers Equal Area projection for South America
 prj <- "+proj=aea  +lat_1=-5 +lat_2=-42 +lat_0=-32 +lon_0=-60 +x_0=0 +y_0=0 +ellps=aust_SA +units=m +no_defs "
 
-colombia  <- shapefile('data/col_admbnda_adm2_unodc_ocha/col_admbnda_adm2_unodc_ocha.shp')
+colombia  <- shapefile('data/administrative_units/col_admbnda_adm2_unodc_ocha/col_admbnda_adm2_unodc_ocha.shp')
 ecuador   <- read_rds(url('https://biogeo.ucdavis.edu/data/gadm3.6/Rsf/gadm36_ECU_0_sf.rds'))
 peru      <- read_rds(url('https://biogeo.ucdavis.edu/data/gadm3.6/Rsf/gadm36_PER_0_sf.rds'))
 brazil    <- read_rds(url('https://biogeo.ucdavis.edu/data/gadm3.6/Rsf/gadm36_BRA_0_sf.rds'))
@@ -58,6 +58,7 @@ venezuela <- read_rds(url('https://biogeo.ucdavis.edu/data/gadm3.6/Rsf/gadm36_VE
 panama    <- read_rds(url('https://biogeo.ucdavis.edu/data/gadm3.6/Rsf/gadm36_PAN_0_sf.rds'))
 
 s_america <- rbind(ecuador, peru, brazil, venezuela, panama)
+s_america_names <- c('ecuador','peru','brazil','venezuela','panama')
 rm(ecuador, peru, brazil, venezuela, panama)
 
 # Load in gnames data:
@@ -203,57 +204,81 @@ rm(gnames_CO, gnames_SA)
 
 
 # DISTANCE CALCULATIONS -------------------------------------------------------
-# DISTANCE: INTERNATIONAL BORDER ----------------
-s_america <- st_union(s_america)
+# DISTANCE: ECUADOR -----------------------------
+dist_ecu <- st_distance(x = centroids_proj,
+                        y = s_america[1,])
+dist_ecu <- as.numeric(dist_ecu / 1e3)
+colombia$distance_ecuador_km <- dist_ecu
 
+# DISTANCE: PERU --------------------------------
+dist_per <- st_distance(x = centroids_proj,
+                        y = s_america[2,])
+dist_per <- as.numeric(dist_per / 1e3)
+colombia$distance_peru_km <- dist_per
+
+# DISTANCE: BRAZIL ------------------------------
+dist_bra <- st_distance(x = centroids_proj, 
+                        y = s_america[3,])
+dist_bra <- as.numeric(dist_bra / 1e3)
+colombia$distance_brazil_km <- dist_bra
+
+# DISTANCE: VENEZUELA ---------------------------
+dist_ven <- st_distance(x = centroids_proj,
+                        y = s_america[4,])
+dist_ven <- as.numeric(dist_ven / 1e3)
+colombia$distance_venezuela_km <- dist_ven
+
+# DISTANCE: PANAMA ------------------------------
+dist_pan <- st_distance(x = centroids_proj,
+                        y = s_america[5,])
+dist_pan <- as.numeric(dist_pan / 1e3)
+colombia$distance_panama_km <- dist_pan
+
+# DISTANCE: INTERNATIONAL BORDER ----------------
+s_america   <- st_union(s_america)
 dist_border <- st_distance(x = centroids_proj, 
                            y = s_america)
 dist_border <- as.numeric(dist_border / 1e3)
+colombia$distance_int_border_km <- dist_border
 
-colombia$distance_border_km <- dist_border
-rm(dist_border, s_america)
+rm(dist_border, dist_ecu, dist_per, dist_bra,
+   dist_ven, dist_pan, s_america, s_america_names)
 
 
 # DISTANCE: POPULATED PLACE (5OK) COLOMBIA ------
-dist_50k_CO    <- st_distance(x = centroids_proj,
+dist_50k_CO <- st_distance(x = centroids_proj,
                            y = pop_50k_CO)
-
-dist_50k_CO    <- as.data.frame(as.matrix(dist_50k_CO)) %>%
+dist_50k_CO <- as.data.frame(as.matrix(dist_50k_CO)) %>%
   apply(., 1, FUN=min)
-dist_50k_CO    <- dist_50k_CO / 1e3
+dist_50k_CO <- dist_50k_CO / 1e3
 
 colombia$distance_50k_co_km <- dist_50k_CO
 rm(dist_50k_CO, pop_50k_CO)
 
-
 # DISTANCE: POPULATED PLACE (5OK) REGIONAL ------
-dist_50k_SA    <- st_distance(x = centroids_proj,
-                              y = pop_50k_SA)
-
-dist_50k_SA    <- as.data.frame(as.matrix(dist_50k_SA)) %>%
+dist_50k_SA <- st_distance(x = centroids_proj,
+                           y = pop_50k_SA)
+dist_50k_SA <- as.data.frame(as.matrix(dist_50k_SA)) %>%
   apply(., 1, FUN=min)
-dist_50k_SA    <- dist_50k_SA / 1e3
+dist_50k_SA <- dist_50k_SA / 1e3
 
 colombia$distance_50k_sa_km <- dist_50k_SA
 rm(dist_50k_SA, pop_50k_SA)
 
-
 # DEPARTMENT CAPITAL ------------------ 
 dist_dept_capital <- st_distance(x = centroids_proj,
                                  y = dept_capitals)
-
 dist_dept_capital <- as.data.frame(as.matrix(dist_dept_capital)) %>%
   apply(., 1, FUN=min)
 dist_dept_capital <- dist_dept_capital / 1e3
 
-colombia$distance_dept_capital <- dist_dept_capital
+colombia$distance_dept_capital_km <- dist_dept_capital
 rm(dist_dept_capital, dept_capitals)
 
 # BOGOTA ------------------------------
 dist_bogota <- st_distance(x = centroids_proj,
                            y = bogota)
 dist_bogota <- as.numeric(dist_bogota / 1e3)
-
 colombia$distance_bogota_km <- dist_bogota
 rm(dist_bogota, bogota, centroids_proj, prj)
 
@@ -270,16 +295,30 @@ colombia <- colombia %>%
          ID_Mun       = as.numeric(str_remove_all(admin2Pcod, 'CO'))) %>%
   rename(Department   = admin1Name,
          Municipality = admin2RefN) %>%
-  dplyr::select(ID_Mun, Department, Municipality, 
-                border_ecuador, border_peru, border_brazil, 
-                border_venezuela, border_panama, border_international,
-                centroid_mun_proj,centroid_mun_long, centroid_mun_lat, 
-                distance_border_km, distance_50k_co_km, distance_50k_sa_km,
-                distance_bogota_km, distance_dept_capital,
-                km2, km2_ln, geometry) %>%
+  dplyr::select(
+    # Organization variables:
+    ID_Mun, Department, Municipality,
+    
+    # Municipality areas:
+    km2, km2_ln,
+    
+    # Border dummy variables:
+    border_ecuador, border_peru, border_brazil, 
+    border_venezuela, border_panama, border_international,
+    
+    # Distance to borders:
+    distance_ecuador_km, distance_peru_km, distance_brazil_km,
+    distance_venezuela_km, distance_panama_km, distance_int_border_km,
+    
+    # Distance to points-of-interest:
+    distance_50k_co_km, distance_50k_sa_km, distance_dept_capital_km, distance_bogota_km,
+    
+    # Coordintates:
+    centroid_mun_proj, centroid_mun_long, centroid_mun_lat, geometry) %>%
   filter(ID_Mun != 88001) #'San Andres Y Providencia'
 
-
+# Reset geometry since centroids_mun_proj may default
+colombia <- st_set_geometry(colombia, colombia$geometry)
 
 # SAVE ------------------------------------------------------------------------
 save(colombia, file = 'data/colombia_admin.RData')

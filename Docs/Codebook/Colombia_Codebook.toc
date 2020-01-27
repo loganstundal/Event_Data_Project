@@ -1,0 +1,13 @@
+\contentsline {section}{Units of Analysis and Shapefile}{2}{section*.1}%
+\contentsline {subsection}{Projection Information}{2}{subsection*.3}%
+\contentsline {subsection}{Spatial Weights Matrix}{3}{subsection*.4}%
+\contentsline {subsection}{Temporal Aggregation}{3}{subsection*.5}%
+\contentsline {section}{Event Data}{4}{section*.6}%
+\contentsline {section}{Covariate Data}{4}{section*.7}%
+\contentsline {subsection}{Geographic variables}{4}{subsection*.8}%
+\contentsline {subsection}{Google Earth Engine Rasters vs.\nobreakspace {}PRIO Grid}{5}{subsection*.9}%
+\contentsline {subsubsection}{Google Earth Engine}{8}{subsubsection*.10}%
+\contentsline {subsubsection}{PRIO}{9}{subsubsection*.11}%
+\contentsline {subsection}{Electoral Data}{9}{subsection*.12}%
+\contentsline {section}{VARIABLES: QUICK INFO}{10}{section*.13}%
+\contentsline {section}{Bibliography}{16}{section*.13}%

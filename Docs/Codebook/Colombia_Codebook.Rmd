@@ -113,7 +113,10 @@ Due to heterogeneity in the size of the administrative units in Colombia, some $
 \end{center}
 
 ### Google Earth Engine
-Due to missing data for important covariates of interest (forest cover, elevation), we utilized [Google's Earth Engine](https://earthengine.google.com/) infrastructure to perform extracts for forest cover, night light luminosity, and population. Additionally, due to the computational costs of working with high-resolution raster data, aggregation of Terrain Roughness Index measurements were also performed on Google servers. JavaScript replication files to reproduce these extracts are available at: ***TEMP***.
+Due to missing data for important covariates of interest (forest cover, elevation), we utilized [Google's Earth Engine](https://earthengine.google.com/) infrastructure to perform extracts for forest cover, night light luminosity, and population. Additionally, due to the computational costs of working with high-resolution raster data, aggregation of Terrain Roughness Index measurements were also performed on Google servers. JavaScript replication files to reproduce these extracts are available at: ***TEMP***. On google earth engine[^gee].
+
+[^gee]: 1. Google Earth Engine’s ["data catalog is paired with scalable compute power backed by Google data centers."](https://earthengine.google.com/faq/). 2. Citation preference for GEE also in this link. 3.	[“The computation engine is a just in time distributed computation model, a cloud-based processing infrastructure that automatically parallelizes analyses on many CPUs across many computers in Google’s data centers.”](https://servirglobal.net/Portals/0/Documents/Articles/ChangeDetectionTraining/Module2_Intro_Google_Earth_Engine_presentation.pdf) 3.a.	Runs on storage clusters that provide access to petabytes of data accessed and processes using 1000’s of CPU cores.
+
 
 The following variables were constructed and extracted from within Google's Earth Engine ecosystem:
 
